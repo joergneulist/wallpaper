@@ -3,6 +3,8 @@
 from importlib import import_module
 import os
 from urllib.request import urlretrieve
+import string
+import sys
 
 from wpobject import wpObject
 from wpplugin import wpPlugin
@@ -40,17 +42,175 @@ def download(wpObject):
     return wpObject
 
 
-#TODO COMMAND LINE CONTROL
+def isInitialOf(initial, fullString):
+    return fullString[:len(initial)] == initial
+
+
+def resolveDictKey(keyInitial, dictionary):
+    keys = []
+    for key in dictionary:
+        if not keyInitial or isInitialOf(keyInitial, key):
+            keys.append(key)
+    return keys
+
+
+def crackParameter(cmdline, paramList):
+    split = cmdline[1:].split("=")
+    value = "=".join(split[1:]) if len(split) > 1 else None
+    names = resolveDictKey(split[0], paramList)
+    if len(names) != 1:
+        return None, None
+    
+    return names[0], value
+
+
+def resolvePlugin(plugins, identifier):
+    split = identifier.split(".")
+    if len(split) > 1:
+        domain = split[0]
+        name = split[1]
+    else:
+        domain = None
+        name = split[0]
+
+    found = []
+    for domain in resolveDictKey(domain, plugins):
+        for name in resolveDictKey(name, plugins[domain]):
+            found.append("{}.{}".format(domain, name))
+    return found
+
+
+def getPlugin(plugins, identifier):
+    return {id: plugins[id.split(".")[0]][id.split(".")[1]] for id in resolvePlugin(plugins, identifier)}
+
+
+def showGlobalHelp():
+    print("Command line parameters:")
+    print()
+    print("[global parameters] [plugin1 [plugin1-parameters [plugin2 [plugin2-parameters ...]]]]")
+    print()
+    print("Global Parameters:")
+    print("  -help")
+    print("   show this explanation")
+    print("  -help=plugin")
+    print("   show detailed explanation for the given plugin")
+    print("  -plugins")
+    print("   list all plugins")
+    print("  -silent")
+    print("   give no output (even if errors occur)")
+    print("  -verbose")
+    print("   give detailed output")
+    print()
+    print(" * the domain (initial) part of a plugin may be left out, as long as its name is still unique")
+    print(" * plugin and parameter names may be abbreviated, as long as they are still unique")
+    print(" * the program will set an exit code of 1 to indicate errors, 0 otherwise")
+    print(" * You have to select *exactly* one get-Plugin. For all others, you are free to choose.")
+    print()
+    print("Example:")
+    print("{} -v get.bing -i=1 eng apply.f -i=/var/opt/wallpaper/wall.jpg".format(sys.argv[0]))
+    print("retrieves yesterday's image from bing, engraves the caption on the image, and stores it in the given location.")
+    print()
+
+    return 0
+
+
+def showPluginList(plugins, domain = None):
+    if not domain:
+        for domain in plugins:
+            showPluginList(plugins, domain)
+
+    else:
+        for name in plugins[domain]:
+            plugin = plugins[domain][name]
+            print("* {}.{}".format(domain, name))
+
+    return 0
+
+
+def showPlugin(plugins, identifier):
+    matchingPlugins = getPlugin(plugins, identifier)
+    for id in matchingPlugins:
+        plugin = matchingPlugins[id]
+        print("Plugin {}".format(id))
+        print("  {}".format(plugin.DESCRIPTION))
+
+        if len(plugin.PARAMETERS):
+            for param in plugin.PARAMETERS:
+                data = plugin.PARAMETERS[param]
+                print("  -{} (default: \"{}\")".format(param, data["default"]))
+                print("   {}".format(data["description"]))
+
+    return 0
+
+
+def setVerbosity(params, target):
+    params["verbosity"] = target
+
+
+def parseGlobalParameters():
+    params = {}
+    setVerbosity(params, 1)
+
+    plugin = None
+    for param in sys.argv[1:]:
+        if param[0] != '-':
+            break
+
+        parameters = {
+            "help": lambda value: showPlugin(plugins, value) if value else showGlobalHelp(),
+            "plugins": lambda value: showPluginList(plugins),
+            "silent": lambda value: setVerbosity(params, 0),
+            "verbose": lambda value: setVerbosity(params, 2)
+        }
+        name, value = crackParameter(param, list(parameters.keys()))
+        if name:
+            result = parameters[name](value)
+            if result is not None:
+                exit(result)
+
+        else:
+            print("Could not parse parameter \"{}\"!".format(param))
+            print()
+            showGlobalHelp()
+            exit(1)
+
+    return params
+
+# _MAIN_ CODE #################################################################
+
 #TODO DO LESS WITH CLASSES
+#TODO use all strings in lower case
+#TODO use plugin parameter approach for global parameters as well
 
 # STARTUP - First import plugins
-plugin_domains = ["get", "modify", "apply"]
 plugins = {}
-for domain in plugin_domains:
+for domain in ["get", "modify", "apply"]:
     plugins[domain] = loadPlugins(domain)
 
-# Parse command line
-# TODO
+# Parse command line, global parameters
+verbosity = parseGlobalParameters()["verbosity"] # silent = 0, verbose = 2
+
+# Parse command line, plugins and their parameters
+exit(3)
+for param in sys.argv[1:]:
+    if param[0] == '-':
+        split = param[1:].split("=")
+        name = split[0]
+        value = split[1] if len(split) > 1 else None
+        print("{}, parameter {}={}".format(plugin if plugin else "<global>", name, value))
+    else:
+        split = param.split(".")
+        if len(split) > 1:
+            domain = split[0]
+            name = split[1]
+        else:
+            domain = None
+            name = split[0]
+
+        plugin = resolvePlugin(plugins, domain, name)
+        print("select plugin {}".format(plugin))
+
+
 selected = {}
 selected["get"] = {"name": "bing", "parameters": {"index": 0, "zone": "de"} }
 selected["modify"] = {"name": "engrave", "parameters": {
@@ -59,6 +219,8 @@ selected["modify"] = {"name": "engrave", "parameters": {
 selected["apply"] = {"name": "filesystem", "parameters": {
     "image": "/var/opt/wallpapers/wall.jpg",
     "text": "/var/opt/wallpapers/wall.txt"} }
+
+exit()
 
 # Execute chosen get task
 img = wpObject()
