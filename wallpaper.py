@@ -6,31 +6,9 @@ from urllib.request import urlretrieve
 import string
 import sys
 
+import cmdline
+import plugins
 from wpobject import wpObject
-from wpplugin import wpPlugin
-
-
-def loadPlugins(path):
-    plugins = {}
-    for file in os.listdir(path):
-        fileParts = file.split(".")
-        base = fileParts[0]
-        name = path + "." + base
-        if len(fileParts) < 2 or not fileParts[1] == "py":
-            continue
-        
-        try:
-            module = import_module(name)
-            pluginclass = getattr(module, base)
-            if not issubclass(pluginclass, wpPlugin):
-                raise Exception("not a subclass of wpPlugin")
-            
-            plugins[base] = getattr(module, base)
-
-        except Exception as exception:
-            print("Unable to load plugin from {}: {}".format(file, exception))
-
-    return plugins
 
 
 def download(wpObject):
@@ -42,64 +20,21 @@ def download(wpObject):
     return wpObject
 
 
-def isInitialOf(initial, fullString):
-    return fullString[:len(initial)] == initial
+def showParameterList(paramDef):
+    if len(paramDef):
+        for param in paramDef:
+            data = paramDef[param]
+            print("  -{} (default: \"{}\")".format(param, data["default"]))
+            print("   {}".format(data["description"]))
 
 
-def resolveDictKey(keyInitial, dictionary):
-    keys = []
-    for key in dictionary:
-        if not keyInitial or isInitialOf(keyInitial, key):
-            keys.append(key)
-    return keys
-
-
-def crackParameter(cmdline, paramList):
-    split = cmdline[1:].split("=")
-    value = "=".join(split[1:]) if len(split) > 1 else None
-    names = resolveDictKey(split[0], paramList)
-    if len(names) != 1:
-        return None, None
-    
-    return names[0], value
-
-
-def resolvePlugin(plugins, identifier):
-    split = identifier.split(".")
-    if len(split) > 1:
-        domain = split[0]
-        name = split[1]
-    else:
-        domain = None
-        name = split[0]
-
-    found = []
-    for domain in resolveDictKey(domain, plugins):
-        for name in resolveDictKey(name, plugins[domain]):
-            found.append("{}.{}".format(domain, name))
-    return found
-
-
-def getPlugin(plugins, identifier):
-    return {id: plugins[id.split(".")[0]][id.split(".")[1]] for id in resolvePlugin(plugins, identifier)}
-
-
-def showGlobalHelp():
+def showGlobalHelp(paramDef):
     print("Command line parameters:")
     print()
     print("[global parameters] [plugin1 [plugin1-parameters [plugin2 [plugin2-parameters ...]]]]")
     print()
     print("Global Parameters:")
-    print("  -help")
-    print("   show this explanation")
-    print("  -help=plugin")
-    print("   show detailed explanation for the given plugin")
-    print("  -plugins")
-    print("   list all plugins")
-    print("  -silent")
-    print("   give no output (even if errors occur)")
-    print("  -verbose")
-    print("   give detailed output")
+    showParameterList(paramDef)
     print()
     print(" * the domain (initial) part of a plugin may be left out, as long as its name is still unique")
     print(" * plugin and parameter names may be abbreviated, as long as they are still unique")
@@ -111,86 +46,97 @@ def showGlobalHelp():
     print("retrieves yesterday's image from bing, engraves the caption on the image, and stores it in the given location.")
     print()
 
-    return 0
 
-
-def showPluginList(plugins, domain = None):
+def showPluginList(addons, domain = None):
     if not domain:
-        for domain in plugins:
-            showPluginList(plugins, domain)
+        for domain in addons:
+            showPluginList(addons, domain)
 
     else:
-        for name in plugins[domain]:
-            plugin = plugins[domain][name]
+        for name in addons[domain]:
+            plugin = addons[domain][name]
             print("* {}.{}".format(domain, name))
 
     return 0
 
 
-def showPlugin(plugins, identifier):
-    matchingPlugins = getPlugin(plugins, identifier)
-    for id in matchingPlugins:
-        plugin = matchingPlugins[id]
+def showPlugin(addons, identifier):
+    matchingaddons = getPlugin(addons, identifier)
+    for id in matchingaddons:
+        plugin = matchingaddons[id]
         print("Plugin {}".format(id))
         print("  {}".format(plugin.DESCRIPTION))
+        showParameterList(plugin.PARAMETERS)
 
-        if len(plugin.PARAMETERS):
-            for param in plugin.PARAMETERS:
-                data = plugin.PARAMETERS[param]
-                print("  -{} (default: \"{}\")".format(param, data["default"]))
-                print("   {}".format(data["description"]))
-
-    return 0
-
-
-def setVerbosity(params, target):
-    params["verbosity"] = target
-
-
-def parseGlobalParameters():
-    params = {}
-    setVerbosity(params, 1)
-
-    plugin = None
-    for param in sys.argv[1:]:
-        if param[0] != '-':
-            break
-
-        parameters = {
-            "help": lambda value: showPlugin(plugins, value) if value else showGlobalHelp(),
-            "plugins": lambda value: showPluginList(plugins),
-            "silent": lambda value: setVerbosity(params, 0),
-            "verbose": lambda value: setVerbosity(params, 2)
-        }
-        name, value = crackParameter(param, list(parameters.keys()))
-        if name:
-            result = parameters[name](value)
-            if result is not None:
-                exit(result)
-
-        else:
-            print("Could not parse parameter \"{}\"!".format(param))
-            print()
-            showGlobalHelp()
-            exit(1)
-
-    return params
 
 # _MAIN_ CODE #################################################################
 
+PARAMETERS = {
+    "help": {
+        "description": "show this explanation",
+        "default": None
+    },
+    "plugins": {
+        "description": "list all plugins",
+        "default": None
+    },
+    "show": {
+        "description": "show detailed explanation for the given plugin",
+        "default": None
+    },
+    "silent": {
+        "description": "give no output (even if errors occur)",
+        "default": None
+    },
+    "verbose": {
+        "description": "give detailed output",
+        "default": None
+    }
+}
+
 #TODO DO LESS WITH CLASSES
 #TODO use all strings in lower case
-#TODO use plugin parameter approach for global parameters as well
 
-# STARTUP - First import plugins
-plugins = {}
-for domain in ["get", "modify", "apply"]:
-    plugins[domain] = loadPlugins(domain)
+addons = plugins.load(["get", "modify", "apply"])
 
-# Parse command line, global parameters
-verbosity = parseGlobalParameters()["verbosity"] # silent = 0, verbose = 2
+arguments = cmdline.segment(sys.argv[1:])
 
-# Parse command line, plugins and their parameters
+try:
+    parameters = cmdline.applyArgList(PARAMETERS, arguments["GLOBAL"])
+
+except Exception as ex:
+    print(ex)
+    showGlobalHelp(PARAMETERS)
+    exit(1)
+
+if parameters["help"]:
+    showGlobalHelp(PARAMETERS)
+    exit(0)
+
+if parameters["plugins"]:
+    showPluginList(addons)
+    exit(0)
+
+if parameters["show"]:
+    showPlugin(addons, parameters["show"])
+    exit(0)
+    
+verbosity = 1
+if parameters["silent"]:
+    verbosity = 0
+elif parameters["verbose"]:
+    verbosity = 2
+
+
+for id in arguments:
+    if id != "GLOBAL":
+        matched = plugins.resolve(addons, id)
+        if len(matched) < 1:
+            raise Exception("Unable to identify plugin {}!".format(id))
+        elif len(matched) > 1:
+            raise Exception("Plugin code {} is not unique (candidates are {})!".format(id, ", ".join(matched.keys())))
+        print(matched[0])
+
 exit(3)
 for param in sys.argv[1:]:
     if param[0] == '-':
@@ -207,7 +153,7 @@ for param in sys.argv[1:]:
             domain = None
             name = split[0]
 
-        plugin = resolvePlugin(plugins, domain, name)
+        plugin = resolvePlugin(addons, domain, name)
         print("select plugin {}".format(plugin))
 
 
@@ -224,22 +170,22 @@ exit()
 
 # Execute chosen get task
 img = wpObject()
-if not selected["get"]["name"] in plugins["get"]:
+if not selected["get"]["name"] in addons["get"]:
     raise NotImplementedError("Plugin get.{} does not exist!".format(selected["get"]["name"]))
-plugins["get"][selected["get"]["name"]].do(img, selected["get"]["parameters"])
+addons["get"][selected["get"]["name"]].do(img, selected["get"]["parameters"])
 
 # Retrieve file
 download(img)
 
 # Execute chosen modify tasks
-if not selected["modify"]["name"] in plugins["modify"]:
+if not selected["modify"]["name"] in addons["modify"]:
     raise NotImplementedError("Plugin modify.{} does not exist!".format(selected["modify"]["name"]))
-plugins["modify"][selected["modify"]["name"]].do(img, selected["modify"]["parameters"])
+addons["modify"][selected["modify"]["name"]].do(img, selected["modify"]["parameters"])
 
 # Execute chosen apply tasks
-if not selected["apply"]["name"] in plugins["apply"]:
+if not selected["apply"]["name"] in addons["apply"]:
     raise NotImplementedError("Plugin apply.{} does not exist!".format(selected["apply"]["name"]))
-plugins["apply"][selected["apply"]["name"]].do(img, selected["apply"]["parameters"])
+addons["apply"][selected["apply"]["name"]].do(img, selected["apply"]["parameters"])
 
 print(img)
 for error in img.errors:
