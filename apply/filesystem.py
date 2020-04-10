@@ -36,7 +36,8 @@ class filesystem(wpPlugin):
 
             if parameters["text"]:
                 with open(parameters["text"], "w") as file:
-                    file.write(wpObject.description)
+                    print(wpObject.caption, file = file)
+                    print(wpObject.description, file = file)
 
         except Exception as exception:
             wpObject.errors[__name__] = exception
