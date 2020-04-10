@@ -2,18 +2,18 @@ import helpers
 
 
 def segment(argvector):
-    section ="GLOBAL"
-    arguments = {section: []}
+    section = ("GLOBAL", [])
+    arguments = [section]
     for arg in argvector:
         if arg[0] != "-": 
-            section = arg
-            arguments[section] = []
+            section = (arg, [])
+            arguments.append(section)
         
         else:
             split = arg[1:].split("=")
             key = split[0]
             value = "=".join(split[1:]) if len(split) > 1 else True
-            arguments[section].append((key, value))
+            section[1].append((key, value))
 
     return arguments
 

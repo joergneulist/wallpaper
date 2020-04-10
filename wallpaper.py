@@ -70,7 +70,9 @@ def showPlugin(addons, identifier):
 
 
 def parseGlobalParameters(arguments):
-    parameters = cmdline.applyArgList(PARAMETERS, arguments["GLOBAL"])
+    assert(arguments[0][0] == "GLOBAL")
+
+    parameters = cmdline.applyArgList(PARAMETERS, arguments[0][1])
     if parameters["help"]:
         showGlobalHelp(PARAMETERS)
         exit(0)
@@ -90,21 +92,25 @@ def parseGlobalParameters(arguments):
     return 1
 
 
-def parsePluginParameters(addons, arguments):
-    chain = []
+def parsePluginParameters(addons, id, parameters):
+    matched = plugins.resolve(addons, id)
+    if len(matched) < 1:
+        raise Exception("Unable to identify plugin {}!".format(id))
+    elif len(matched) > 1:
+        raise Exception("Plugin code {} is not unique (candidates are {})!" \
+                        .format(id, ", ".join(matched)))
+    
+    name = matched[0]
+    plugin = plugins.get(addons, name)[name]
+    return { "name": name, "plugin": plugin,
+             "config": cmdline.applyArgList(plugin.PARAMETERS, parameters) }
 
-    for id in arguments:
-        if id != "GLOBAL":
-            matched = plugins.resolve(addons, id)
-            if len(matched) < 1:
-                raise Exception("Unable to identify plugin {}!".format(id))
-            elif len(matched) > 1:
-                raise Exception("Plugin code {} is not unique (candidates are {})!".format(id, ", ".join(matched)))
-            
-            name = matched[0]
-            plugin = plugins.get(addons, name)[name]
-            parameters = cmdline.applyArgList(plugin.PARAMETERS, arguments[id])
-            chain.append({"name": name, "plugin": plugin, "config": parameters})
+
+def parseProcessingChain(ingest, addons, arguments):
+    chain = [ parsePluginParameters(ingest, arguments[1][0], arguments[1][1]) ]
+
+    for segment in arguments[2:]:
+        chain.append(parsePluginParameters(addons, segment[0], segment[1]))
 
     return chain
 
@@ -138,12 +144,13 @@ PARAMETERS = {
 #TODO Verify there is exactly one get task
 #TODO use all strings in lower case
 
-addons = plugins.load(["get", "modify", "apply"])
+ingest = plugins.load(["get"])
+addons = plugins.load(["modify", "apply"])
 
 arguments = cmdline.segment(sys.argv[1:])
 
 verbosity = parseGlobalParameters(arguments)
-processingChain = parsePluginParameters(addons, arguments)
+processingChain = parseProcessingChain(ingest, addons, arguments)
 
 # Give feedback
 if verbosity > 0:
