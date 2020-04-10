@@ -31,8 +31,7 @@ class filesystem(wpPlugin):
     def do(wpObject, parameters):
         try:
             if parameters["image"]:
-                shutil.move(wpObject.filename, parameters["image"])
-                wpObject.filename = None
+                shutil.copyfile(wpObject.filename, parameters["image"])
 
             if parameters["text"]:
                 with open(parameters["text"], "w") as file:

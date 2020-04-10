@@ -20,6 +20,15 @@ def download(wpObject):
     return wpObject
 
 
+def remove_tempfile(wpObject):
+    try:
+        os.remove(wpObject.filename)
+    except Exception as exception:
+        wpObject.errors[__name__ + ".remove_tempfile"] = exception
+    
+    return wpObject
+
+
 def showParameterList(paramDef):
     if len(paramDef):
         for param in paramDef:
@@ -177,6 +186,8 @@ for step in processingChain[1:]:
         print("   configuration: {}".format(step["config"]))
 
     step["plugin"].do(img, step["config"])
+
+remove_tempfile(img)
 
 # Give feedback again
 if verbosity > 1:
