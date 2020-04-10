@@ -28,8 +28,8 @@ class nasa(wpPlugin):
     @staticmethod
     def do(wpObject, parameters):
         base_url = "https://api.nasa.gov/planetary/apod?api_key=uMUs7SQJVxUBaOm3y5wci3BT97X1mylJ0hJdEb0h"
-        url = base_url + "&date={}".format(date)
-
+        url = base_url + "&date={}".format(parameters["date"])
+        
         try:
             nasa_json = wpPlugin.getFromWeb(url)
             nasa_data = json.loads(nasa_json)
@@ -39,7 +39,7 @@ class nasa(wpPlugin):
                 wpObject.caption = nasa_data["title"]
                 wpObject.description = nasa_data["explanation"]
         
-        except exception:
-            wpObject.error[__name__] = exception
+        except Exception as exception:
+            wpObject.errors[__name__] = exception
 
         return wpObject
