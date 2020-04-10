@@ -69,6 +69,46 @@ def showPlugin(addons, identifier):
         showParameterList(plugin.PARAMETERS)
 
 
+def parseGlobalParameters(arguments):
+    parameters = cmdline.applyArgList(PARAMETERS, arguments["GLOBAL"])
+    if parameters["help"]:
+        showGlobalHelp(PARAMETERS)
+        exit(0)
+
+    if parameters["plugins"]:
+        showPluginList(addons)
+        exit(0)
+
+    if parameters["show"]:
+        showPlugin(addons, parameters["show"])
+        exit(0)
+        
+    if parameters["silent"]:
+        return 0
+    elif parameters["verbose"]:
+        return 2
+    return 1
+
+
+def parsePluginParameters(addons, arguments):
+    chain = []
+
+    for id in arguments:
+        if id != "GLOBAL":
+            matched = plugins.resolve(addons, id)
+            if len(matched) < 1:
+                raise Exception("Unable to identify plugin {}!".format(id))
+            elif len(matched) > 1:
+                raise Exception("Plugin code {} is not unique (candidates are {})!".format(id, ", ".join(matched)))
+            
+            name = matched[0]
+            plugin = plugins.get(addons, name)[name]
+            parameters = cmdline.applyArgList(plugin.PARAMETERS, arguments[id])
+            chain.append({"name": name, "plugin": plugin, "config": parameters})
+
+    return chain
+
+
 # _MAIN_ CODE #################################################################
 
 PARAMETERS = {
@@ -95,98 +135,49 @@ PARAMETERS = {
 }
 
 #TODO DO LESS WITH CLASSES
+#TODO Verify there is exactly one get task
 #TODO use all strings in lower case
 
 addons = plugins.load(["get", "modify", "apply"])
 
 arguments = cmdline.segment(sys.argv[1:])
 
-try:
-    parameters = cmdline.applyArgList(PARAMETERS, arguments["GLOBAL"])
+verbosity = parseGlobalParameters(arguments)
+processingChain = parsePluginParameters(addons, arguments)
 
-except Exception as ex:
-    print(ex)
-    showGlobalHelp(PARAMETERS)
-    exit(1)
+# Give feedback
+if verbosity > 0:
+    print("Executing: {}".format(" - ".join([step["name"] for step in processingChain])))
 
-if parameters["help"]:
-    showGlobalHelp(PARAMETERS)
-    exit(0)
-
-if parameters["plugins"]:
-    showPluginList(addons)
-    exit(0)
-
-if parameters["show"]:
-    showPlugin(addons, parameters["show"])
-    exit(0)
-    
-verbosity = 1
-if parameters["silent"]:
-    verbosity = 0
-elif parameters["verbose"]:
-    verbosity = 2
-
-
-for id in arguments:
-    if id != "GLOBAL":
-        matched = plugins.resolve(addons, id)
-        if len(matched) < 1:
-            raise Exception("Unable to identify plugin {}!".format(id))
-        elif len(matched) > 1:
-            raise Exception("Plugin code {} is not unique (candidates are {})!".format(id, ", ".join(matched.keys())))
-        print(matched[0])
-
-exit(3)
-for param in sys.argv[1:]:
-    if param[0] == '-':
-        split = param[1:].split("=")
-        name = split[0]
-        value = split[1] if len(split) > 1 else None
-        print("{}, parameter {}={}".format(plugin if plugin else "<global>", name, value))
-    else:
-        split = param.split(".")
-        if len(split) > 1:
-            domain = split[0]
-            name = split[1]
-        else:
-            domain = None
-            name = split[0]
-
-        plugin = resolvePlugin(addons, domain, name)
-        print("select plugin {}".format(plugin))
-
-
-selected = {}
-selected["get"] = {"name": "bing", "parameters": {"index": 0, "zone": "de"} }
-selected["modify"] = {"name": "engrave", "parameters": {
-    "font": "DejaVuSans-BoldOblique.ttf", "size": 24, "fgcol": (255, 255, 255),
-    "bgcol": (0, 0, 0), "position": (-10, -10), "padding": 5} }
-selected["apply"] = {"name": "filesystem", "parameters": {
-    "image": "/var/opt/wallpapers/wall.jpg",
-    "text": "/var/opt/wallpapers/wall.txt"} }
-
-exit()
-
-# Execute chosen get task
+# Execute get task
 img = wpObject()
-if not selected["get"]["name"] in addons["get"]:
-    raise NotImplementedError("Plugin get.{} does not exist!".format(selected["get"]["name"]))
-addons["get"][selected["get"]["name"]].do(img, selected["get"]["parameters"])
+step = processingChain[0]
+if verbosity > 1:
+    print(" - {}".format(step["name"]))
+    print("   configuration: {}".format(step["config"]))
 
-# Retrieve file
+step["plugin"].do(img, step["config"])
+if verbosity > 1:
+    print(img.caption)
+    print(img.description)
+
 download(img)
 
-# Execute chosen modify tasks
-if not selected["modify"]["name"] in addons["modify"]:
-    raise NotImplementedError("Plugin modify.{} does not exist!".format(selected["modify"]["name"]))
-addons["modify"][selected["modify"]["name"]].do(img, selected["modify"]["parameters"])
+# Execute remainder of the chain
+for step in processingChain[1:]:
+    if verbosity > 1:
+        print(" - {}".format(step["name"]))
+        print("   configuration: {}".format(step["config"]))
 
-# Execute chosen apply tasks
-if not selected["apply"]["name"] in addons["apply"]:
-    raise NotImplementedError("Plugin apply.{} does not exist!".format(selected["apply"]["name"]))
-addons["apply"][selected["apply"]["name"]].do(img, selected["apply"]["parameters"])
+    step["plugin"].do(img, step["config"])
 
-print(img)
-for error in img.errors:
-    print("E {}: {}".format(error, img.errors[error]))
+# Give feedback again
+if verbosity > 1:
+    print("done!")
+
+if verbosity > 0:
+    if img.errors:
+        print("There were errors:")
+        for error in img.errors:
+            print("E {}: {}".format(error, img.errors[error]))
+

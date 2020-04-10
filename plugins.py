@@ -34,16 +34,17 @@ def load(paths):
 def resolve(plugins, identifier):
     split = identifier.split(".")
     if len(split) > 1:
-        domain = split[0]
-        name = split[1]
+        domainInitial = split[0]
+        nameInitial = split[1]
     else:
-        domain = None
-        name = split[0]
+        domainInitial = None
+        nameInitial = split[0]
 
     found = []
-    for domain in helpers.resolveDictKey(domain, plugins):
-        for name in helpers.resolveDictKey(name, plugins[domain]):
+    for domain in helpers.resolveDictKey(domainInitial, plugins):
+        for name in helpers.resolveDictKey(nameInitial, plugins[domain]):
             found.append("{}.{}".format(domain, name))
+    
     return found
 
 
