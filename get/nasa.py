@@ -26,7 +26,7 @@ def do(wpObject, parameters):
     url = base_url + "&date={}".format(parameters["date"])
     
     try:
-        nasa_data = helpers.getJson(url)
+        nasa_data = getJson(url)
 
         if nasa_data["media_type"] == "image":
             wpObject.url = nasa_data["hdurl"]

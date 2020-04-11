@@ -11,24 +11,6 @@ import plugins
 from wpobject import wpObject
 
 
-def download(wpObject):
-    try:
-        wpObject.filename, _ = urlretrieve(wpObject.url)
-    except Exception as exception:
-        wpObject.errors[__name__ + ".download"] = exception
-    
-    return wpObject
-
-
-def remove_tempfile(wpObject):
-    try:
-        os.remove(wpObject.filename)
-    except Exception as exception:
-        wpObject.errors[__name__ + ".remove_tempfile"] = exception
-    
-    return wpObject
-
-
 def showParameterList(paramDef):
     if len(paramDef):
         for param in paramDef:
@@ -51,34 +33,32 @@ def showGlobalHelp(paramDef):
     print(" * You have to select *exactly* one get-Plugin. For all others, you are free to choose.")
     print()
     print("Example:")
-    print("{} -v get.bing -i=1 eng apply.f -i=/var/opt/wallpaper/wall.jpg".format(sys.argv[0]))
+    print("{} -v bing -index=1 eng f -i=/var/opt/wallpaper/wall.jpg".format(sys.argv[0]))
     print("retrieves yesterday's image from bing, engraves the caption on the image, and stores it in the given location.")
     print()
 
 
-def showPluginList(addons, domain = None):
-    if not domain:
-        for domain in addons:
-            showPluginList(addons, domain)
-
-    else:
-        for name in addons[domain]:
-            plugin = addons[domain][name]
-            print("* {}.{}".format(domain, name))
-
-    return 0
+def showPluginList(pluginsGet, pluginsProc):
+    for name in pluginsGet:
+        plugin = pluginsGet[name]
+        print("* GET: {}".format(name))
+    for name in pluginsProc:
+        plugin = pluginsProc[name]
+        print("* PROCESS: {}".format(name))
 
 
-def showPlugin(addons, identifier):
-    matchingaddons = plugins.get(addons, identifier)
-    for id in matchingaddons:
-        plugin = matchingaddons[id]
-        print("Plugin {}".format(id))
+def showPlugin(pluginsGet, pluginsProc, identifier):
+    for id, plugin in plugins.get(pluginsGet, identifier).items():
+        print("GET Plugin {}".format(id))
+        print("  {}".format(plugin.DESCRIPTION))
+        showParameterList(plugin.PARAMETERS)
+    for id, plugin in plugins.get(pluginsProc, identifier).items():
+        print("PROCESS Plugin {}".format(id))
         print("  {}".format(plugin.DESCRIPTION))
         showParameterList(plugin.PARAMETERS)
 
 
-def parseGlobalParameters(arguments):
+def parseGlobalParameters(pluginsGet, pluginsProc, arguments):
     assert(arguments[0][0] == "GLOBAL")
 
     parameters = cmdline.applyArgList(PARAMETERS, arguments[0][1])
@@ -87,11 +67,11 @@ def parseGlobalParameters(arguments):
         exit(0)
 
     if parameters["plugins"]:
-        showPluginList(addons)
+        showPluginList(pluginsGet, pluginsProc)
         exit(0)
 
     if parameters["show"]:
-        showPlugin({**ingest, **addons}, parameters["show"])
+        showPlugin(pluginsGet, pluginsProc, parameters["show"])
         exit(0)
         
     if parameters["silent"]:
@@ -101,25 +81,23 @@ def parseGlobalParameters(arguments):
     return 1
 
 
-def parsePluginParameters(addons, id, parameters):
-    matched = plugins.resolve(addons, id)
+def parsePluginParameters(pluginList, id, parameters):
+    matched = plugins.resolve(pluginList, id)
     if len(matched) < 1:
         raise Exception("Unable to identify plugin {}!".format(id))
     elif len(matched) > 1:
         raise Exception("Plugin code {} is not unique (candidates are {})!" \
-                        .format(id, ", ".join(matched)))
+                        .format(id, ", ".join(matched.keys())))
     
-    name = matched[0]
-    plugin = plugins.get(addons, name)[name]
-    return { "name": name, "plugin": plugin,
-             "config": cmdline.applyArgList(plugin.PARAMETERS, parameters) }
+    return { "name": matched[0], "plugin": pluginList[matched[0]],
+             "config": cmdline.applyArgList(pluginList[matched[0]].PARAMETERS, parameters) }
 
 
-def parseProcessingChain(ingest, addons, arguments):
-    chain = [ parsePluginParameters(ingest, arguments[1][0], arguments[1][1]) ]
+def parseProcessingChain(pluginsGet, pluginsProc, arguments):
+    chain = [ parsePluginParameters(pluginsGet, arguments[1][0], arguments[1][1]) ]
 
     for segment in arguments[2:]:
-        chain.append(parsePluginParameters(addons, segment[0], segment[1]))
+        chain.append(parsePluginParameters(pluginsProc, segment[0], segment[1]))
 
     return chain
 
@@ -149,17 +127,14 @@ PARAMETERS = {
     }
 }
 
-#TODO DO LESS WITH CLASSES
-# - Plugins don't need classes, maybe?
-# - wpObject may be unnecessary (or move download and clean up there?)
 
-ingest = plugins.load(["get"])
-addons = plugins.load(["modify", "apply"])
+plugGet = plugins.load("get")
+plugProc = plugins.load("proc")
 
 arguments = cmdline.segment(sys.argv[1:])
 
-verbosity = parseGlobalParameters(arguments)
-processingChain = parseProcessingChain(ingest, addons, arguments)
+verbosity = parseGlobalParameters(plugGet, plugProc, arguments)
+processingChain = parseProcessingChain(plugGet, plugProc, arguments)
 
 # Give feedback
 if verbosity > 0:
@@ -177,7 +152,7 @@ if verbosity > 1:
     print(img.caption)
     print(img.description)
 
-download(img)
+img.download()
 
 # Execute remainder of the chain
 for step in processingChain[1:]:
@@ -186,8 +161,6 @@ for step in processingChain[1:]:
         print("   configuration: {}".format(step["config"]))
 
     step["plugin"].do(img, step["config"])
-
-remove_tempfile(img)
 
 # Give feedback again
 if verbosity > 1:
