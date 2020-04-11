@@ -22,7 +22,7 @@ def load(paths):
                 if not issubclass(pluginclass, wpPlugin):
                     raise Exception("not a subclass of wpPlugin")
                 
-                plugins[path][base] = getattr(module, base)
+                plugins[path.lower()][base.lower()] = getattr(module, base)
 
             except Exception as exception:
                 print("Unable to load plugin from {}/{}: {}"\

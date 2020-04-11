@@ -150,8 +150,6 @@ PARAMETERS = {
 }
 
 #TODO DO LESS WITH CLASSES
-#TODO Verify there is exactly one get task
-#TODO use all strings in lower case
 
 ingest = plugins.load(["get"])
 addons = plugins.load(["modify", "apply"])

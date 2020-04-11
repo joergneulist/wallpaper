@@ -6,12 +6,12 @@ def segment(argvector):
     arguments = [section]
     for arg in argvector:
         if arg[0] != "-": 
-            section = (arg, [])
+            section = (arg.lower(), [])
             arguments.append(section)
         
         else:
             split = arg[1:].split("=")
-            key = split[0]
+            key = split[0].lower()
             value = "=".join(split[1:]) if len(split) > 1 else True
             section[1].append((key, value))
 
