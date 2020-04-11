@@ -15,13 +15,6 @@ PARAMETERS = {
 }
 
 
-def parseParameter(name, value):
-    if value and not os.access(value, W_OK):
-        return None, "File {} is not writeable!".format(value)
-
-    return value, None
-
-
 def do(wpObject, parameters):
     try:
         if parameters["image"]:

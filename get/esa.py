@@ -5,10 +5,6 @@ DESCRIPTION = "Get a wallpaper from the ESA Image page"
 PARAMETERS = {}
 
 
-def parseParameter(name, value):
-    return value, None
-
-
 def do(wpObject, parameters):
     base_url = "https://www.esa.int"
 

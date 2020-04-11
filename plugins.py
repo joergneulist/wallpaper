@@ -11,11 +11,6 @@ import helpers
 # PARAMETERS: dict of dicts, detailing the parameter structure
 #             { "parameter1": {"description": string, "default": default_value},
 #               ...}
-# parseParameter(name, value)
-#   Parse a given string representation for a parameter. name is already
-#   checked, so it will be correct. Check value for correctness,
-#   returning the corrected param value (may be None) and a natural
-#   language parse result (may also be None).
 # do(wpObject, parameters)
 #   implement the actual processing step
 
@@ -32,7 +27,6 @@ def load(path):
             module = import_module(name)
             if module.DESCRIPTION is None \
             or module.PARAMETERS is None \
-            or module.parseParameter is None \
             or module.do is None:
                 raise Exception("not a well-formed plugin!")
             

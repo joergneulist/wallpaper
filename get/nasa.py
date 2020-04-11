@@ -12,15 +12,6 @@ PARAMETERS = {
 }
 
 
-def parseParameter(name, value):
-    try:
-        date = str(datetime.datetime.strptime(value, "%Y-%m-%d").date())
-    except Exception as exception:
-        return None, str(exception)
-
-    return date, None
-
-
 def do(wpObject, parameters):
     base_url = "https://api.nasa.gov/planetary/apod?api_key=uMUs7SQJVxUBaOm3y5wci3BT97X1mylJ0hJdEb0h"
     url = base_url + "&date={}".format(parameters["date"])

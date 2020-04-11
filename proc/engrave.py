@@ -47,10 +47,6 @@ def textbox(image, text, font, size, fgcol, bgcol, position, padding):
     draw.text((x, y), text, fgcol, font = font)
 
 
-def parseParameter(name, value):
-    return value, None
-
-
 def do(wpObject, parameters):
     try:
         image = Image.open(wpObject.filename)

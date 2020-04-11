@@ -16,20 +16,6 @@ PARAMETERS = {
 }
 
 
-def parseParameter(name, value):
-    if name == "index":
-        try:
-            number = int(value)
-        except Exception as exception:
-            return None, str(exception)
-        if number < 0:
-            return None, "index must be non-negative!"
-        else:
-            return number, None
-
-    return value, None # No checking of zone!
-
-
 def do(wpObject, parameters):
     base_url = "http://www.bing.com"
     url = base_url + "/HPImageArchive.aspx?format=js&idx={0}&n=1&mkt={1}".format(parameters["index"], parameters["zone"])

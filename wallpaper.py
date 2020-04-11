@@ -104,6 +104,8 @@ def parseProcessingChain(pluginsGet, pluginsProc, arguments):
 
 # _MAIN_ CODE #################################################################
 
+# TODO: think of a better command line syntax
+
 PARAMETERS = {
     "help": {
         "description": "show this explanation",
