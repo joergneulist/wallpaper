@@ -2,8 +2,22 @@ from importlib import import_module
 import os
 
 import helpers
-from wpplugin import wpPlugin
 
+
+### PLUGIN DETAILS ############################################################
+#
+# A plugin must implement:
+# DESCRIPTION: string, to be displayed on the command line"
+# PARAMETERS: dict of dicts, detailing the parameter structure
+#             { "parameter1": {"description": string, "default": default_value},
+#               ...}
+# parseParameter(name, value)
+#   Parse a given string representation for a parameter. name is already
+#   checked, so it will be correct. Check value for correctness,
+#   returning the corrected param value (may be None) and a natural
+#   language parse result (may also be None).
+# do(wpObject, parameters)
+#   implement the actual processing step
 
 def load(paths):
     plugins = {}
@@ -18,11 +32,11 @@ def load(paths):
             
             try:
                 module = import_module(name)
-                pluginclass = getattr(module, base)
-                if not issubclass(pluginclass, wpPlugin):
-                    raise Exception("not a subclass of wpPlugin")
+                if module.DESCRIPTION is None or module.PARAMETERS is None \
+                  or module.parseParameter is None or module.do is None:
+                    raise Exception("not a well-formed plugin!")
                 
-                plugins[path.lower()][base.lower()] = getattr(module, base)
+                plugins[path.lower()][base.lower()] = module
 
             except Exception as exception:
                 print("Unable to load plugin from {}/{}: {}"\

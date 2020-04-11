@@ -26,7 +26,7 @@ def applyArgList(paramDef, argList):
         if len(paramNames) < 1:
             raise Exception("Unable to identify parameter {}!".format(paramCandidate))
         elif len(paramNames) > 1:
-            raise Exception("Parameter code {} is not unique (candidates are {})!".format(paramCandidate, ", ".join(paramNames)))
+            raise Exception("Parameter code {} is not unique (candidates are {})!".format(paramCandidate[0], ", ".join(paramNames)))
         
         parameters[paramNames[0]] = paramCandidate[1]
     

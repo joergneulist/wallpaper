@@ -70,7 +70,7 @@ def showPluginList(addons, domain = None):
 
 
 def showPlugin(addons, identifier):
-    matchingaddons = getPlugin(addons, identifier)
+    matchingaddons = plugins.get(addons, identifier)
     for id in matchingaddons:
         plugin = matchingaddons[id]
         print("Plugin {}".format(id))
@@ -91,7 +91,7 @@ def parseGlobalParameters(arguments):
         exit(0)
 
     if parameters["show"]:
-        showPlugin(addons, parameters["show"])
+        showPlugin({**ingest, **addons}, parameters["show"])
         exit(0)
         
     if parameters["silent"]:
@@ -150,6 +150,8 @@ PARAMETERS = {
 }
 
 #TODO DO LESS WITH CLASSES
+# - Plugins don't need classes, maybe?
+# - wpObject may be unnecessary (or move download and clean up there?)
 
 ingest = plugins.load(["get"])
 addons = plugins.load(["modify", "apply"])
