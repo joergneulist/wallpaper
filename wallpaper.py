@@ -129,9 +129,12 @@ PARAMETERS = {
     }
 }
 
+exec_rel = os.path.join(os.getcwd(), sys.argv[0])
+exec_abs = os.path.realpath(exec_rel)
+path = os.path.dirname(exec_abs)
 
-plugGet = plugins.load("get")
-plugProc = plugins.load("proc")
+plugGet = plugins.load(path, "get")
+plugProc = plugins.load(path, "proc")
 
 arguments = cmdline.segment(sys.argv[1:])
 

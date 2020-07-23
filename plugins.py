@@ -14,12 +14,12 @@ import helpers
 # do(wpObject, parameters)
 #   implement the actual processing step
 
-def load(path):
+def load(path, moddir):
     plugins = {}
-    for file in os.listdir(path):
+    for file in os.listdir(os.path.join(path, moddir)):
         fileParts = file.split(".")
         base = fileParts[0]
-        name = path + "." + base
+        name = moddir + "." + base
         if len(fileParts) < 2 or not fileParts[1] == "py":
             continue
         
