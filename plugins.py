@@ -7,9 +7,9 @@ import helpers
 ### PLUGIN DETAILS ############################################################
 #
 # A plugin must implement:
-# DESCRIPTION: string, to be displayed on the command line"
+# DESCRIPTION: string, to be displayed on the command line'
 # PARAMETERS: dict of dicts, detailing the parameter structure
-#             { "parameter1": {"description": string, "default": default_value},
+#             { 'parameter1': {'description': string, 'default': default_value},
 #               ...}
 # do(wpObject, parameters)
 #   implement the actual processing step
@@ -17,10 +17,10 @@ import helpers
 def load(path, moddir):
     plugins = {}
     for file in os.listdir(os.path.join(path, moddir)):
-        fileParts = file.split(".")
+        fileParts = file.split('.')
         base = fileParts[0]
-        name = moddir + "." + base
-        if len(fileParts) < 2 or not fileParts[1] == "py":
+        name = moddir + '.' + base
+        if len(fileParts) < 2 or not fileParts[1] == 'py':
             continue
         
         try:
@@ -28,12 +28,12 @@ def load(path, moddir):
             if module.DESCRIPTION is None \
             or module.PARAMETERS is None \
             or module.do is None:
-                raise Exception("not a well-formed plugin!")
+                raise Exception('not a well-formed plugin!')
             
             plugins[base.lower()] = module
 
         except Exception as exception:
-            print("Unable to load plugin from {}/{}: {}"\
+            print('Unable to load plugin from {}/{}: {}'\
                     .format(path, file, exception))
 
     return plugins

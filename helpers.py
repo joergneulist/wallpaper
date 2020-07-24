@@ -16,13 +16,12 @@ def resolveDictKey(keyInitial, dictionary):
 
 
 def getFromWeb(url):
-    return urlopen(url).read().decode("utf-8")
+    return urlopen(url).read().decode('utf-8')
 
 
 def getHtml(url):
-    return BeautifulSoup(getFromWeb(url), features = "lxml")
+    return BeautifulSoup(getFromWeb(url), features = 'lxml')
 
 
 def getJson(url):
     return json.loads(getFromWeb(url))
-
