@@ -1,0 +1,17 @@
+{
+	"help": "download images off bing and copy them into the file system",
+	"chain":
+	[
+		{
+			"name": "bing",
+			"alias": { "zone": "region" }
+		},
+		{
+			"name": "engrave"
+		},
+		{
+			"name": "copy",
+			"config": { "image": "/var/opt/wallpapers/wall.jpg", "text":  "/var/opt/wallpapers/wall.txt" }
+		}
+	]
+}

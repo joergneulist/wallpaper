@@ -1,12 +1,14 @@
 #!/usr/bin/python3
 
+import argparse
 from importlib import import_module
+import json
 import os
 from urllib.request import urlretrieve
 import string
 import sys
 
-import cmdline
+import chainscript
 import plugins
 from wpobject import wpObject
 
@@ -15,165 +17,114 @@ def showParameterList(paramDef):
     if len(paramDef):
         for param in paramDef:
             data = paramDef[param]
-            print("  -{} (default: \"{}\")".format(param, data["default"]))
-            print("   {}".format(data["description"]))
-
-
-def showGlobalHelp(paramDef):
-    print("Command line parameters:")
-    print()
-    print("[global parameters] [plugin1 [plugin1-parameters [plugin2 [plugin2-parameters ...]]]]")
-    print()
-    print("Global Parameters:")
-    showParameterList(paramDef)
-    print()
-    print(" * the domain (initial) part of a plugin may be left out, as long as its name is still unique")
-    print(" * plugin and parameter names may be abbreviated, as long as they are still unique")
-    print(" * the program will set an exit code of 1 to indicate errors, 0 otherwise")
-    print(" * You have to select *exactly* one get-Plugin. For all others, you are free to choose.")
-    print()
-    print("Example:")
-    print("{} -v bing -index=1 eng f -i=/var/opt/wallpaper/wall.jpg".format(sys.argv[0]))
-    print("retrieves yesterday's image from bing, engraves the caption on the image, and stores it in the given location.")
-    print()
+            print('  -{} (default: \'{}\')'.format(param, data['default']))
+            print('   {}'.format(data['description']))
 
 
 def showPluginList(pluginsGet, pluginsProc):
     for name in pluginsGet:
         plugin = pluginsGet[name]
-        print("* GET: {}".format(name))
+        print('* GET: {}'.format(name))
     for name in pluginsProc:
         plugin = pluginsProc[name]
-        print("* PROCESS: {}".format(name))
+        print('* PROCESS: {}'.format(name))
 
 
 def showPlugin(pluginsGet, pluginsProc, identifier):
     for id, plugin in plugins.get(pluginsGet, identifier).items():
-        print("GET Plugin {}".format(id))
-        print("  {}".format(plugin.DESCRIPTION))
+        print('GET Plugin {}'.format(id))
+        print('  {}'.format(plugin.DESCRIPTION))
         showParameterList(plugin.PARAMETERS)
     for id, plugin in plugins.get(pluginsProc, identifier).items():
-        print("PROCESS Plugin {}".format(id))
-        print("  {}".format(plugin.DESCRIPTION))
+        print('PROCESS Plugin {}'.format(id))
+        print('  {}'.format(plugin.DESCRIPTION))
         showParameterList(plugin.PARAMETERS)
 
 
-def parseGlobalParameters(pluginsGet, pluginsProc, arguments):
-    assert(arguments[0][0] == "GLOBAL")
 
-    parameters = cmdline.applyArgList(PARAMETERS, arguments[0][1])
-    if parameters["help"]:
-        showGlobalHelp(PARAMETERS)
-        exit(0)
-
-    if parameters["plugins"]:
-        showPluginList(pluginsGet, pluginsProc)
-        exit(0)
-
-    if parameters["show"]:
-        showPlugin(pluginsGet, pluginsProc, parameters["show"])
-        exit(0)
-        
-    if parameters["silent"]:
-        return 0
-    elif parameters["verbose"]:
-        return 2
-    return 1
-
-
-def parsePluginParameters(pluginList, id, parameters):
-    matched = plugins.resolve(pluginList, id)
-    if len(matched) < 1:
-        raise Exception("Unable to identify plugin {}!".format(id))
-    elif len(matched) > 1:
-        raise Exception("Plugin code {} is not unique (candidates are {})!" \
-                        .format(id, ", ".join(matched.keys())))
+def findFile(name, path, ext):
+    if os.access(name, os.R_OK):
+        return name
+    if os.access(name + ext, os.R_OK):
+        return name + ext
     
-    return { "name": matched[0], "plugin": pluginList[matched[0]],
-             "config": cmdline.applyArgList(pluginList[matched[0]].PARAMETERS, parameters) }
+    name = os.path.join(path, name)
+    if os.access(name, os.R_OK):
+        return name
+    if os.access(name + ext, os.R_OK):
+        return name + ext
 
-
-def parseProcessingChain(pluginsGet, pluginsProc, arguments):
-    chain = [ parsePluginParameters(pluginsGet, arguments[1][0], arguments[1][1]) ]
-
-    for segment in arguments[2:]:
-        chain.append(parsePluginParameters(pluginsProc, segment[0], segment[1]))
-
-    return chain
 
 
 # _MAIN_ CODE #################################################################
-
-# TODO: think of a better command line syntax
-
-PARAMETERS = {
-    "help": {
-        "description": "show this explanation",
-        "default": None
-    },
-    "plugins": {
-        "description": "list all plugins",
-        "default": None
-    },
-    "show": {
-        "description": "show detailed explanation for the given plugin",
-        "default": None
-    },
-    "silent": {
-        "description": "give no output (even if errors occur)",
-        "default": None
-    },
-    "verbose": {
-        "description": "give detailed output",
-        "default": None
-    }
-}
 
 exec_rel = os.path.join(os.getcwd(), sys.argv[0])
 exec_abs = os.path.realpath(exec_rel)
 path = os.path.dirname(exec_abs)
 
-plugGet = plugins.load(path, "get")
-plugProc = plugins.load(path, "proc")
+plugGet = plugins.load(path, 'get')
+plugProc = plugins.load(path, 'proc')
 
-arguments = cmdline.segment(sys.argv[1:])
+parser = argparse.ArgumentParser(description = 'Find wallpapers online and manipulate them.', add_help = False)
+parser.add_argument('script', nargs = '?', help = 'the wallpaper script to execute (look in subdir scripts)')
+parser.add_argument('-h', '--help', action = 'store_true', help = 'show global or script help and exit')
+parser.add_argument('-p', '--plugins', nargs = '?', const = '', help = 'list all plugins OR show details for a given plugin')
+parser.add_argument('-q', '--quiet', action = 'store_true', help = 'give no output (even if errors occur)')
+parser.add_argument('-v', '--verbose', action = 'store_true', help = 'give detailed output')
 
-verbosity = parseGlobalParameters(plugGet, plugProc, arguments)
-processingChain = parseProcessingChain(plugGet, plugProc, arguments)
+arguments, script_arguments = parser.parse_known_args()
 
-# Give feedback
-if verbosity > 0:
-    print("Executing: {}".format(" - ".join([step["name"] for step in processingChain])))
+if arguments.help and arguments.script is None:
+    parser.print_help()
 
-# Execute get task
-img = wpObject()
-step = processingChain[0]
-if verbosity > 1:
-    print(" - {}".format(step["name"]))
-    print("   configuration: {}".format(step["config"]))
+elif arguments.plugins is not None:
+    if len(arguments.plugins) == 0:
+        showPluginList(plugGet, plugProc)
+    else:
+        showPlugin(plugGet, plugProc, arguments.plugins)
 
-step["plugin"].do(img, step["config"])
-if verbosity > 1:
-    print(img.caption)
-    print(img.description)
+else:
+    verbosity = 1
+    if arguments.quiet:
+        verbosity = 0
+    elif arguments.verbose:
+        verbosity = 2
 
-img.download()
+    processingChain = chainscript.parse(plugGet, plugProc, findFile(arguments.script, os.path.join(path, 'scripts'), '.json'), arguments.help, script_arguments)
 
-# Execute remainder of the chain
-for step in processingChain[1:]:
+    # Give feedback
+    if verbosity > 0:
+        print('Executing: {}'.format(' - '.join([step['name'] for step in processingChain])))
+
+    # Execute get task
+    img = wpObject()
+    step = processingChain[0]
     if verbosity > 1:
-        print(" - {}".format(step["name"]))
-        print("   configuration: {}".format(step["config"]))
+        print(' - {}'.format(step['name']))
+        print('   configuration: {}'.format(step['config']))
 
-    step["plugin"].do(img, step["config"])
+    step['plugin'].do(img, step['config'])
+    if verbosity > 1:
+        print(img.caption)
+        print(img.description)
 
-# Give feedback again
-if verbosity > 1:
-    print("done!")
+    img.download()
 
-if verbosity > 0:
-    if img.errors:
-        print("There were errors:")
-        for error in img.errors:
-            print("E {}: {}".format(error, img.errors[error]))
+    # Execute remainder of the chain
+    for step in processingChain[1:]:
+        if verbosity > 1:
+            print(' - {}'.format(step['name']))
+            print('   configuration: {}'.format(step['config']))
+
+        step['plugin'].do(img, step['config'])
+
+    # Give feedback again
+    if verbosity > 1:
+        print('done!')
+
+    if verbosity > 0:
+        if img.errors:
+            print('There were errors:')
+            for error in img.errors:
+                print('E {}: {}'.format(error, img.errors[error]))
 
