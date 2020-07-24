@@ -1,6 +1,6 @@
 from PIL import Image, ImageFont, ImageDraw 
 
-DESCRIPTION = 'Write a wallpaper''s caption on the image'
+DESCRIPTION = 'Write a wallpaper\'s caption on the image'
 
 PARAMETERS = {
     'font': {

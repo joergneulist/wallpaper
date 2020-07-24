@@ -6,7 +6,7 @@ DESCRIPTION = 'Get a wallpaper from the Microsoft Bing search engine'
 
 PARAMETERS = {
     'index': {
-        'description': 'Bing allows retrieving older images; use 0 to get today''s, 1 for yesterday''s, etc.',
+        'description': 'Bing allows retrieving older images; use 0 to get today\'s, 1 for yesterday\'s, etc.',
         'default': 0
     },
     'zone': {

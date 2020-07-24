@@ -6,7 +6,7 @@ import plugins
 import sys
 
 
-def setupPlugin(step, pluginList, parser):
+def setupPlugin(step, pluginList):
     # Identify plugin:
     matched = plugins.resolve(pluginList, step['name'])
     if len(matched) < 1:
@@ -25,13 +25,24 @@ def setupPlugin(step, pluginList, parser):
     if 'config' in step:
         defaults.update(step['config'])
     step['config'] = defaults
-    
-    # Load command line config:
-    for arg, default in step['config'].items():
-        help = '{}: {}'.format(step['name'], step['plugin'].PARAMETERS[arg]['description'])
-        if 'alias' in step and arg in step['alias']:
-            arg = step['alias'][arg]
-        parser.add_argument('--' + arg, default = default, help = help)
+
+
+def setupParser(chain):
+    help = ''
+    for step in chain:
+        help += step['plugin'].DESCRIPTION + '. '
+
+    parser = argparse.ArgumentParser(description = help, add_help = False,
+                                     formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+
+    for step in chain:
+        for arg, default in step['config'].items():
+            help = '{}: {}'.format(step['name'], step['plugin'].PARAMETERS[arg]['description'])
+            if 'alias' in step and arg in step['alias']:
+                arg = step['alias'][arg]
+            parser.add_argument('--' + arg, default = default, help = help)
+
+    return parser
 
 
 def configurePlugin(step, cmdLine):
@@ -42,21 +53,19 @@ def configurePlugin(step, cmdLine):
 
 def parse(plugGet, plugProc, script, help, arguments):
     with open(script) as config_file:
-        data = json.load(config_file)
+        chain = json.load(config_file)
 
-    parser = argparse.ArgumentParser(description = data['help'], add_help = False,
-                                     formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+    setupPlugin(chain[0], plugGet)
+    for step in chain[1:]:
+        setupPlugin(step, plugProc)
 
-    setupPlugin(data['chain'][0], plugGet, parser)
-    for step in data['chain'][1:]:
-        setupPlugin(step, plugProc, parser)
-
+    parser = setupParser(chain)
     if help:
         parser.print_help()
         exit(0)
-    
     cmdLine = vars(parser.parse_args(arguments))
-    for step in data['chain']:
+
+    for step in chain:
         configurePlugin(step, cmdLine)
 
-    return data['chain']
+    return chain
